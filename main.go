@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/bubbles/list"
+	bubbletable "github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,16 +15,28 @@ type Model struct {
 	height int
 
 	lists  []list.Model
+	table  bubbletable.Model
 	err    error
 	loaded bool
 }
 
 func (m *Model) initLists(width, height int) {
 	snapshotlist := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height/2)
+	snapshotlist.Title = "Snapshots"
 	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height/2)
-	changesList := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height/2)
+	tableList.Title = "Tables"
 
-	m.lists = []list.Model{snapshotlist, tableList, changesList}
+	m.lists = []list.Model{snapshotlist, tableList}
+}
+
+func (m *Model) initTable() {
+	columns := []bubbletable.Column{
+		{Title: "ID", Width: 10},
+		{Title: "first_name", Width: 10},
+		{Title: "last_name", Width: 10},
+	}
+	m.table = bubbletable.New(bubbletable.WithColumns(columns))
+
 }
 
 func New() *Model {
@@ -42,15 +55,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.height = msg.Height
 
 			leftWidth := msg.Width / 3
-			rightWidth := msg.Width - leftWidth
+			// rightWidth := msg.Width - leftWidth
 
 			halfHeight := msg.Height / 2
 
 			m.initLists(msg.Width, msg.Height)
+			m.initTable()
 
 			m.lists[0].SetSize(leftWidth, halfHeight-2)
 			m.lists[1].SetSize(leftWidth, msg.Height-halfHeight-2)
-			m.lists[2].SetSize(rightWidth, msg.Height-2)
 
 			m.loaded = true
 		}
@@ -77,7 +90,7 @@ func (m Model) View() string {
 			style.Render(m.lists[1].View()),
 		)
 
-		rightColumn := style.Render(m.lists[2].View())
+		rightColumn := style.Render(m.table.View())
 
 		return lipgloss.JoinHorizontal(
 			lipgloss.Top,
