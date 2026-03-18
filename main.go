@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/list"
 	bubbletable "github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -100,8 +103,15 @@ func (m Model) View() string {
 }
 
 func main() {
+	ctx := context.Background()
 
-	listen()
+	events := make(chan RowEvent, 100)
+
+	go listen(ctx, events)
+
+	for ev := range events {
+		fmt.Printf("[%s] %s → %v\n", ev.eventType, ev.table, ev.data)
+	}
 
 	// m := New()
 	// p := tea.NewProgram(m)
