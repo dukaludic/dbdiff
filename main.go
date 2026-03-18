@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/charmbracelet/bubbles/list"
 	bubbletable "github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -103,11 +100,14 @@ func (m Model) View() string {
 }
 
 func main() {
-	m := New()
-	p := tea.NewProgram(m)
 
-	if err := p.Start(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	listen()
+
+	// m := New()
+	// p := tea.NewProgram(m)
+
+	// if err := p.Start(); err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
 }
