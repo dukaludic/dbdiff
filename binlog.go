@@ -71,9 +71,10 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 		case *replication.TableMapEvent:
 			table := string(ev.Table)
 
-			fmt.Sprintln(table, "TABLE")
-
-			continue
+			schema := string(ev.Schema)
+			if schema != "sakila" {
+				continue
+			}
 
 			query := fmt.Sprintf("SHOW COLUMNS FROM `%s`", table)
 
@@ -82,8 +83,6 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			defer rows.Close()
 
 			columns := []string{}
 
@@ -120,21 +119,20 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 			case replication.WRITE_ROWS_EVENTv2:
 				// for _, row := range ev.Rows {
 
-				// 	// fmt.Printf("[INSERT] %s.%s → %v\n", schema, table, row)
+				// 	fmt.Printf("[INSERT] %s.%s → %v\n", schema, table, row)
 				// }
 
 			// DELETE
 			case replication.DELETE_ROWS_EVENTv2:
-				for _, row := range ev.Rows {
-					// fmt.Printf("[DELETE] %s.%s → %v\n", schema, table, row)
-					// eventType := ev.Header.EventType.String()
+				// for _, row := range ev.Rows {
+				// 	fmt.Printf("[DELETE] %s.%s → %v\n", schema, table, row)
 
-					out <- RowEvent{
-						table:     table,
-						eventType: replication.DELETE_ROWS_EVENTv2.String(),
-						data:      row,
-					}
-				}
+				// 	out <- RowEvent{
+				// 		table:     table,
+				// 		eventType: replication.DELETE_ROWS_EVENTv2.String(),
+				// 		data:      row,
+				// 	}
+				// }
 
 			// UPDATE
 			case replication.UPDATE_ROWS_EVENTv2:
@@ -143,35 +141,21 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 					before := ev.Rows[i]
 					after := ev.Rows[i+1]
 
-					beforeMapped := []MappedColumnData{}
-
-					fmt.Printf("%+v len\n", len(tableColumnMap[table]))
-					fmt.Printf("%+v len\n", tableColumnMap[table])
-					fmt.Printf("%+v,table\n", table)
+					beforeMapped := make(map[string]interface{})
+					afterMapped := make(map[string]interface{})
 
 					for j := 0; j < len(tableColumnMap[table]); j++ {
-
-						fmt.Printf("%s\n", before[j])
-
-						beforeMapped = append(beforeMapped, MappedColumnData{
-							column: tableColumnMap[table][j],
-							data:   toString(before[j]),
-						})
+						beforeMapped[tableColumnMap[table][j]] = toString(before[j])
+						afterMapped[tableColumnMap[table][j]] = toString(after[j])
 					}
-
-					fmt.Printf("%+v", beforeMapped)
 
 					out <- RowEvent{
 						table:     table,
 						eventType: replication.DELETE_ROWS_EVENTv2.String(),
 						data: []any{
-							before,
-							after,
+							beforeMapped,
+							afterMapped,
 						},
-
-						// fmt.Printf("[UPDATE] %s.%s\n", schema, table)
-						// fmt.Printf("  BEFORE → %v\n", before)
-						// fmt.Printf("  AFTER  → %v\n", after)
 					}
 				}
 			}
