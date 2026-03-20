@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/charmbracelet/bubbles/list"
 	bubbletable "github.com/charmbracelet/bubbles/table"
@@ -18,15 +19,16 @@ type Model struct {
 	table  bubbletable.Model
 	err    error
 	loaded bool
+
+	events     chan RowEvent
+	tableItems []string
 }
 
 func (m *Model) initLists(width, height int) {
-	snapshotlist := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height/2)
-	snapshotlist.Title = "Snapshots"
-	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height/2)
+	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 5000)
 	tableList.Title = "Tables"
 
-	m.lists = []list.Model{snapshotlist, tableList}
+	m.lists = []list.Model{tableList}
 }
 
 func (m *Model) initTable() {
@@ -40,12 +42,28 @@ func (m *Model) initTable() {
 }
 
 func New() *Model {
-	return &Model{}
+	return &Model{
+		events: make(chan RowEvent, 100),
+	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return nil
+	ctx := context.Background()
+	go listen(ctx, m.events)
+	return waitForEvent(m.events)
 }
+
+func waitForEvent(events <-chan RowEvent) tea.Cmd {
+	return func() tea.Msg {
+		return <-events
+	}
+}
+
+type item string
+
+func (i item) Title() string       { return string(i) }
+func (i item) Description() string { return "" }
+func (i item) FilterValue() string { return string(i) }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -60,15 +78,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			halfHeight := msg.Height / 2
 
 			m.initLists(msg.Width, msg.Height)
-			m.initTable()
+			// m.initTable()
 
-			m.lists[0].SetSize(leftWidth, halfHeight-2)
-			m.lists[1].SetSize(leftWidth, msg.Height-halfHeight-2)
+			m.lists[0].SetSize(leftWidth, halfHeight)
 
 			m.loaded = true
 		}
 
 		// m.initLists(msg.Width, msg.Height)
+	case RowEvent:
+		// fmt.Printf("RowEvent: %+v\n", msg)
+
+		m.tableItems = append(m.tableItems, msg.table)
+
+		items := []list.Item{}
+		for _, v := range m.tableItems {
+			items = append(items, item(v))
+		}
+
+		m.lists[0].SetItems(items)
+		return m, waitForEvent(m.events) // Keep listening
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -87,7 +116,6 @@ func (m Model) View() string {
 		leftColumn := lipgloss.JoinVertical(
 			lipgloss.Left,
 			style.Render(m.lists[0].View()),
-			style.Render(m.lists[1].View()),
 		)
 
 		rightColumn := style.Render(m.table.View())
@@ -103,21 +131,11 @@ func (m Model) View() string {
 }
 
 func main() {
-	ctx := context.Background()
+	m := New()
+	p := tea.NewProgram(m)
 
-	events := make(chan RowEvent, 100)
-
-	go listen(ctx, events)
-
-	for ev := range events {
-		fmt.Printf("[%s] %s → %v\n", ev.eventType, ev.table, ev.data)
+	if err := p.Start(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-
-	// m := New()
-	// p := tea.NewProgram(m)
-
-	// if err := p.Start(); err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
 }

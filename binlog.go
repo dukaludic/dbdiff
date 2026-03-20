@@ -151,7 +151,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 
 					out <- RowEvent{
 						table:     table,
-						eventType: replication.DELETE_ROWS_EVENTv2.String(),
+						eventType: replication.UPDATE_ROWS_EVENTv2.String(),
 						data: []any{
 							beforeMapped,
 							afterMapped,
