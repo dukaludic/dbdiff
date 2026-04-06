@@ -23,6 +23,8 @@ type Model struct {
 
 	events     chan RowEvent
 	tableItems []string
+
+	selectedTable int
 }
 
 func (m *Model) initList(width, height int) {
@@ -103,13 +105,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.lists[0].SetItems(items)
+		if m.selectedTable >= len(items) && len(items) > 0 {
+			m.selectedTable = len(items) - 1
+			m.lists[0].Select(m.selectedTable)
+		}
 		return m, waitForEvent(m.events) // Keep listening
 
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "up":
+			if m.selectedTable > 0 {
+				m.selectedTable--
+				m.lists[0].Select(m.selectedTable)
+			}
+		case "down":
+			if m.selectedTable < len(m.lists[0].Items())-1 {
+				m.selectedTable++
+				m.lists[0].Select(m.selectedTable)
+			}
 		}
+
 	}
 
 	return m, nil

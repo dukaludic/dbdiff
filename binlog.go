@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
+	"log/slog"
 
 	"github.com/go-mysql-org/go-mysql/mysql"
 	"github.com/go-mysql-org/go-mysql/replication"
@@ -25,9 +27,11 @@ type MappedColumnData struct {
 func listen(ctx context.Context, out chan<- RowEvent) {
 	dsn := "root:@tcp(127.0.0.1:3306)/sakila"
 	db, err := sql.Open("mysql", dsn)
+
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	defer db.Close()
 
 	var pos mysql.Position
@@ -51,6 +55,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 		Host:     "127.0.0.1",
 		Port:     3306,
 		User:     "root",
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	syncer := replication.NewBinlogSyncer(cfg)
