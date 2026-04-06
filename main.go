@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/charmbracelet/bubbles/list"
 	bubbletable "github.com/charmbracelet/bubbles/table"
@@ -24,9 +25,14 @@ type Model struct {
 	tableItems []string
 }
 
-func (m *Model) initLists(width, height int) {
-	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), 100, 5000)
+func (m *Model) initList(width, height int) {
+	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height)
 	tableList.Title = "Tables"
+	tableList.SetShowStatusBar(false)
+
+	styles := list.DefaultStyles()
+	styles.Title = styles.Title.Background(lipgloss.Color(""))
+	tableList.Styles = styles
 
 	m.lists = []list.Model{tableList}
 }
@@ -77,19 +83,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			halfHeight := msg.Height / 2
 
-			m.initLists(msg.Width, msg.Height)
+			m.initList(msg.Width, msg.Height)
 			// m.initTable()
 
 			m.lists[0].SetSize(leftWidth, halfHeight)
 
 			m.loaded = true
 		}
-
-		// m.initLists(msg.Width, msg.Height)
 	case RowEvent:
-		// fmt.Printf("RowEvent: %+v\n", msg)
+		exists := slices.Contains(m.tableItems, msg.table)
 
-		m.tableItems = append(m.tableItems, msg.table)
+		if !exists {
+			m.tableItems = append(m.tableItems, msg.table)
+		}
 
 		items := []list.Item{}
 		for _, v := range m.tableItems {
