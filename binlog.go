@@ -24,6 +24,8 @@ type MappedColumnData struct {
 	data   any
 }
 
+var tableColumnMap = make(map[string][]string)
+
 func listen(ctx context.Context, out chan<- RowEvent) {
 	dsn := "root:@tcp(127.0.0.1:3306)/sakila"
 	db, err := sql.Open("mysql", dsn)
@@ -65,8 +67,6 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	tableColumnMap := make(map[string][]string)
 
 	for {
 		event, err := streamer.GetEvent(ctx)

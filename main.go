@@ -21,8 +21,8 @@ type Model struct {
 	err    error
 	loaded bool
 
-	events     chan RowEvent
-	tableItems []string
+	events chan RowEvent
+	tables []string
 
 	selectedTable int
 }
@@ -40,13 +40,7 @@ func (m *Model) initList(width, height int) {
 }
 
 func (m *Model) initTable() {
-	columns := []bubbletable.Column{
-		{Title: "ID", Width: 10},
-		{Title: "first_name", Width: 10},
-		{Title: "last_name", Width: 10},
-	}
-	m.table = bubbletable.New(bubbletable.WithColumns(columns))
-
+	m.table = bubbletable.New(bubbletable.WithColumns([]bubbletable.Column{}))
 }
 
 func New() *Model {
@@ -73,6 +67,24 @@ func (i item) Title() string       { return string(i) }
 func (i item) Description() string { return "" }
 func (i item) FilterValue() string { return string(i) }
 
+func columnsFromNames(names []string) []bubbletable.Column {
+	cols := make([]bubbletable.Column, len(names))
+	for i, name := range names {
+		cols[i] = bubbletable.Column{Title: name, Width: 15}
+	}
+	return cols
+}
+
+func (m *Model) loadSelectedTableColumns() {
+	items := m.lists[0].Items()
+	if len(items) == 0 || m.selectedTable < 0 || m.selectedTable >= len(items) {
+		return
+	}
+
+	selectedTableName := items[m.selectedTable].FilterValue()
+	m.table.SetColumns(columnsFromNames(tableColumnMap[selectedTableName]))
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -83,32 +95,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			leftWidth := msg.Width / 3
 			// rightWidth := msg.Width - leftWidth
 
-			halfHeight := msg.Height / 2
+			// halfHeight := msg.Height / 2
 
 			m.initList(msg.Width, msg.Height)
-			// m.initTable()
+			m.initTable()
 
-			m.lists[0].SetSize(leftWidth, halfHeight)
+			m.table.SetHeight(m.height - 2)
+			m.table.SetWidth(m.width - 60)
+
+			m.lists[0].SetSize(leftWidth, msg.Height-2)
 
 			m.loaded = true
 		}
 	case RowEvent:
-		exists := slices.Contains(m.tableItems, msg.table)
+		tableExists := slices.Contains(m.tables, msg.table)
 
-		if !exists {
-			m.tableItems = append(m.tableItems, msg.table)
+		if !tableExists {
+			m.tables = append(m.tables, msg.table)
 		}
 
 		items := []list.Item{}
-		for _, v := range m.tableItems {
+		for _, v := range m.tables {
 			items = append(items, item(v))
 		}
 
 		m.lists[0].SetItems(items)
-		if m.selectedTable >= len(items) && len(items) > 0 {
-			m.selectedTable = len(items) - 1
-			m.lists[0].Select(m.selectedTable)
+
+		if len(m.lists[0].Items()) > 0 {
+			m.selectedTable = 0
+			m.lists[0].Select(0)
+			m.loadSelectedTableColumns()
 		}
+
 		return m, waitForEvent(m.events) // Keep listening
 
 	case tea.KeyMsg:
@@ -119,11 +137,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selectedTable > 0 {
 				m.selectedTable--
 				m.lists[0].Select(m.selectedTable)
+				m.loadSelectedTableColumns()
 			}
 		case "down":
 			if m.selectedTable < len(m.lists[0].Items())-1 {
 				m.selectedTable++
 				m.lists[0].Select(m.selectedTable)
+				m.loadSelectedTableColumns()
 			}
 		}
 
@@ -155,7 +175,10 @@ func (m Model) View() string {
 
 func main() {
 	m := New()
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(
+		m,
+		tea.WithAltScreen(),
+	)
 
 	if err := p.Start(); err != nil {
 		fmt.Println(err)
