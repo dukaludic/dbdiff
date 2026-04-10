@@ -19,11 +19,6 @@ type RowEvent struct {
 	data      []any
 }
 
-type UpdatedRowData struct {
-	previous map[string]any
-	current  map[string]any
-}
-
 var tableColumnMap = make(map[string][]string)
 
 func listen(ctx context.Context, out chan<- RowEvent) {

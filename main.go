@@ -28,6 +28,14 @@ type Model struct {
 	selectedTable int
 }
 
+type UpdatedRowData struct {
+	columns  []string
+	previous table.Row
+	current  table.Row
+}
+
+var tableColumnDiffMap = make(map[string]UpdatedRowData)
+
 func (m *Model) initList(width, height int) {
 	tableList := list.New([]list.Item{}, list.NewDefaultDelegate(), width, height)
 	tableList.Title = "Tables"
@@ -41,13 +49,15 @@ func (m *Model) initList(width, height int) {
 }
 
 func (m *Model) initTable() {
-	m.table = bubbletable.New(bubbletable.WithColumns([]bubbletable.Column{}))
+	m.table = bubbletable.New(bubbletable.WithColumns([]table.Column{}))
 }
 
-func (m *Model) loadSelectedTableRows(previous table.Row, current table.Row) {
-	rows := []table.Row{
-		previous,
-		current,
+func (m *Model) loadSelectedTableRows(table string) {
+	tableDiff := tableColumnDiffMap[table]
+
+	rows := []bubbletable.Row{
+		tableDiff.previous,
+		tableDiff.current,
 	}
 
 	m.table.SetRows(rows)
@@ -134,6 +144,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		previous := table.Row(prevRow)
 		current := table.Row(currRow)
 
+		tableColumnDiffMap[msg.table] = UpdatedRowData{
+			columns:  cols,
+			previous: previous,
+			current:  current,
+		}
+
 		tableExists := slices.Contains(m.tables, msg.table)
 
 		if !tableExists {
@@ -152,7 +168,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTable = 0
 				m.lists[0].Select(0)
 				m.loadSelectedTableColumns()
-				m.loadSelectedTableRows(previous, current)
+				m.loadSelectedTableRows(m.tables[m.selectedTable])
 			}
 		}
 
@@ -167,12 +183,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTable--
 				m.lists[0].Select(m.selectedTable)
 				m.loadSelectedTableColumns()
+				m.loadSelectedTableRows(m.tables[m.selectedTable])
 			}
 		case "down":
 			if m.selectedTable < len(m.lists[0].Items())-1 {
 				m.selectedTable++
 				m.lists[0].Select(m.selectedTable)
 				m.loadSelectedTableColumns()
+				m.loadSelectedTableRows(m.tables[m.selectedTable])
 			}
 		}
 
