@@ -52,7 +52,8 @@ func (m *Model) initTable() {
 	m.table = bubbletable.New(bubbletable.WithColumns([]table.Column{}))
 }
 
-func (m *Model) loadSelectedTableRows(table string) {
+func (m *Model) loadSelectedTableRows() {
+	table := m.tables[m.selectedTable]
 	tableDiff := tableColumnDiffMap[table]
 
 	rows := []bubbletable.Row{
@@ -168,7 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTable = 0
 				m.lists[0].Select(0)
 				m.loadSelectedTableColumns()
-				m.loadSelectedTableRows(m.tables[m.selectedTable])
+				m.loadSelectedTableRows()
 			}
 		}
 
@@ -183,14 +184,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedTable--
 				m.lists[0].Select(m.selectedTable)
 				m.loadSelectedTableColumns()
-				m.loadSelectedTableRows(m.tables[m.selectedTable])
+				m.loadSelectedTableRows()
 			}
 		case "down":
 			if m.selectedTable < len(m.lists[0].Items())-1 {
 				m.selectedTable++
 				m.lists[0].Select(m.selectedTable)
 				m.loadSelectedTableColumns()
-				m.loadSelectedTableRows(m.tables[m.selectedTable])
+				m.loadSelectedTableRows()
 			}
 		}
 
