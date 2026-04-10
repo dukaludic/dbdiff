@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/table"
 	bubbletable "github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -43,9 +44,19 @@ func (m *Model) initTable() {
 	m.table = bubbletable.New(bubbletable.WithColumns([]bubbletable.Column{}))
 }
 
+func (m *Model) loadSelectedTableRows(previous table.Row, current table.Row) {
+	rows := []table.Row{
+		previous,
+		current,
+	}
+
+	m.table.SetRows(rows)
+}
+
 func New() *Model {
 	return &Model{
-		events: make(chan RowEvent, 100),
+		events:        make(chan RowEvent, 100),
+		selectedTable: -1,
 	}
 }
 
@@ -82,6 +93,7 @@ func (m *Model) loadSelectedTableColumns() {
 	}
 
 	selectedTableName := items[m.selectedTable].FilterValue()
+	m.table.SetRows([]table.Row{})
 	m.table.SetColumns(columnsFromNames(tableColumnMap[selectedTableName]))
 }
 
@@ -93,9 +105,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.height = msg.Height
 
 			leftWidth := msg.Width / 3
-			// rightWidth := msg.Width - leftWidth
-
-			// halfHeight := msg.Height / 2
 
 			m.initList(msg.Width, msg.Height)
 			m.initTable()
@@ -108,6 +117,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.loaded = true
 		}
 	case RowEvent:
+
+		cols := tableColumnMap[msg.table]
+
+		prevMap := msg.data[0].(map[string]interface{})
+		currMap := msg.data[1].(map[string]interface{})
+
+		prevRow := make([]string, len(cols))
+		currRow := make([]string, len(cols))
+
+		for i, col := range cols {
+			prevRow[i] = toString(prevMap[col])
+			currRow[i] = toString(currMap[col])
+		}
+
+		previous := table.Row(prevRow)
+		current := table.Row(currRow)
+
 		tableExists := slices.Contains(m.tables, msg.table)
 
 		if !tableExists {
@@ -122,9 +148,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lists[0].SetItems(items)
 
 		if len(m.lists[0].Items()) > 0 {
-			m.selectedTable = 0
-			m.lists[0].Select(0)
-			m.loadSelectedTableColumns()
+			if m.selectedTable == -1 {
+				m.selectedTable = 0
+				m.lists[0].Select(0)
+				m.loadSelectedTableColumns()
+				m.loadSelectedTableRows(previous, current)
+			}
 		}
 
 		return m, waitForEvent(m.events) // Keep listening

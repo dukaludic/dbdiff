@@ -16,12 +16,12 @@ import (
 type RowEvent struct {
 	table     string
 	eventType string
-	data      []interface{}
+	data      []any
 }
 
-type MappedColumnData struct {
-	column string
-	data   any
+type UpdatedRowData struct {
+	previous map[string]any
+	current  map[string]any
 }
 
 var tableColumnMap = make(map[string][]string)
@@ -76,39 +76,39 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 		case *replication.TableMapEvent:
 			table := string(ev.Table)
 
+			// fmt.Println("%+v", string(ev.Schema))
+			// os.Exit(1)
+
+			// Check if there is better way to do this. Probably not
 			schema := string(ev.Schema)
 			if schema != "sakila" {
 				continue
 			}
 
-			query := fmt.Sprintf("SHOW COLUMNS FROM `%s`", table)
+			// TODO: Optimize. Maybe some caching. See when TableMapEvent is actually required.
+			query := `
+			SELECT COLUMN_NAME
+			FROM information_schema.COLUMNS
+			WHERE TABLE_SCHEMA = DATABASE()
+			AND TABLE_NAME = ?
+			ORDER BY ORDINAL_POSITION
+			`
 
-			rows, err := db.Query(query)
-
+			rows, err := db.Query(query, table)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			columns := []string{}
-
+			var columns []string
 			for rows.Next() {
-				var field, discard, discard2, key, discard3, discard4 sql.NullString
-
-				err := rows.Scan(&field, &discard, &discard2, &key, &discard3, &discard4)
-				if err != nil {
-					panic(err)
-				}
-
 				var column string
-				if field.Valid {
-					column = field.String
-				} else {
-					column = ""
+				if err := rows.Scan(&column); err != nil {
+					log.Fatal(err)
 				}
-
 				columns = append(columns, column)
 			}
 
+			// Cache getColumns query here. See when to invalidate
 			tableColumnMap[table] = columns
 
 		case *replication.RowsEvent:
