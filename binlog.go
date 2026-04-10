@@ -15,8 +15,30 @@ import (
 
 type RowEvent struct {
 	table     string
-	eventType string
+	eventType EventType
 	data      []any
+}
+
+type EventType int
+
+const (
+	Insert EventType = iota
+	Update
+	Delete
+	Unknown
+)
+
+func mapEventType(e replication.EventType) EventType {
+	switch e {
+	case replication.WRITE_ROWS_EVENTv2:
+		return Insert
+	case replication.UPDATE_ROWS_EVENTv2:
+		return Update
+	case replication.DELETE_ROWS_EVENTv2:
+		return Delete
+	default:
+		return Unknown
+	}
 }
 
 var tableColumnMap = make(map[string][]string)
@@ -113,17 +135,17 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 				continue
 			}
 
-			switch event.Header.EventType {
+			switch mapEventType(event.Header.EventType) {
 
 			// INSERT
-			case replication.WRITE_ROWS_EVENTv2:
+			case Insert:
 				// for _, row := range ev.Rows {
 
 				// 	fmt.Printf("[INSERT] %s.%s → %v\n", schema, table, row)
 				// }
 
 			// DELETE
-			case replication.DELETE_ROWS_EVENTv2:
+			case Delete:
 				// for _, row := range ev.Rows {
 				// 	fmt.Printf("[DELETE] %s.%s → %v\n", schema, table, row)
 
@@ -135,7 +157,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 				// }
 
 			// UPDATE
-			case replication.UPDATE_ROWS_EVENTv2:
+			case Update:
 				for i := 0; i < len(ev.Rows); i += 2 {
 
 					before := ev.Rows[i]
@@ -151,7 +173,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 
 					out <- RowEvent{
 						table:     table,
-						eventType: replication.UPDATE_ROWS_EVENTv2.String(),
+						eventType: Update,
 						data: []any{
 							beforeMapped,
 							afterMapped,

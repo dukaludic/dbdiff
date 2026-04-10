@@ -108,6 +108,43 @@ func (m *Model) loadSelectedTableColumns() {
 	m.table.SetColumns(columnsFromNames(tableColumnMap[selectedTableName]))
 }
 
+func (m *Model) processUpdateMsg(msg RowEvent) {
+	cols := tableColumnMap[msg.table]
+
+	prevMap := msg.data[0].(map[string]interface{})
+	currMap := msg.data[1].(map[string]interface{})
+
+	prevRow := make([]string, len(cols))
+	currRow := make([]string, len(cols))
+
+	for i, col := range cols {
+		prevRow[i] = toString(prevMap[col])
+		currRow[i] = toString(currMap[col])
+	}
+
+	previous := table.Row(prevRow)
+	current := table.Row(currRow)
+
+	tableColumnDiffMap[msg.table] = UpdatedRowData{
+		columns:  cols,
+		previous: previous,
+		current:  current,
+	}
+
+	tableExists := slices.Contains(m.tables, msg.table)
+
+	if !tableExists {
+		m.tables = append(m.tables, msg.table)
+	}
+
+	items := []list.Item{}
+	for _, v := range m.tables {
+		items = append(items, item(v))
+	}
+
+	m.lists[0].SetItems(items)
+}
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -129,40 +166,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case RowEvent:
 
-		cols := tableColumnMap[msg.table]
-
-		prevMap := msg.data[0].(map[string]interface{})
-		currMap := msg.data[1].(map[string]interface{})
-
-		prevRow := make([]string, len(cols))
-		currRow := make([]string, len(cols))
-
-		for i, col := range cols {
-			prevRow[i] = toString(prevMap[col])
-			currRow[i] = toString(currMap[col])
+		switch msg.eventType {
+		case Update:
+			m.processUpdateMsg(msg)
 		}
-
-		previous := table.Row(prevRow)
-		current := table.Row(currRow)
-
-		tableColumnDiffMap[msg.table] = UpdatedRowData{
-			columns:  cols,
-			previous: previous,
-			current:  current,
-		}
-
-		tableExists := slices.Contains(m.tables, msg.table)
-
-		if !tableExists {
-			m.tables = append(m.tables, msg.table)
-		}
-
-		items := []list.Item{}
-		for _, v := range m.tables {
-			items = append(items, item(v))
-		}
-
-		m.lists[0].SetItems(items)
 
 		if len(m.lists[0].Items()) > 0 {
 			if m.selectedTable == -1 {
