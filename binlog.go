@@ -54,17 +54,21 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 	defer db.Close()
 
 	var pos mysql.Position
-	rows2, err := db.Query("SHOW BINARY LOG STATUS")
+	binlogFileAndPosition, err := db.Query("SHOW BINARY LOG STATUS")
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer rows2.Close()
+	defer binlogFileAndPosition.Close()
 
-	if rows2.Next() {
+	if binlogFileAndPosition.Next() {
 		var file string
 		var position uint32
-		rows2.Scan(&file, &position /* ignore rest */)
+
+		var ignore1, ignore2, ignore3 any
+		if err := binlogFileAndPosition.Scan(&file, &position, &ignore1, &ignore2, &ignore3); err != nil {
+			log.Fatal("failed to scan binlog status:", err)
+		}
 		pos = mysql.Position{Name: file, Pos: position}
 	}
 
@@ -87,6 +91,10 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 
 	for {
 		event, err := streamer.GetEvent(ctx)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		switch ev := event.Event.(type) {
 
