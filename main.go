@@ -24,6 +24,7 @@ type Model struct {
 
 	events chan RowEvent
 	tables []string
+	dbCfg  Config
 
 	selectedTable int
 }
@@ -64,16 +65,17 @@ func (m *Model) loadSelectedTableRows() {
 	m.table.SetRows(rows)
 }
 
-func New() *Model {
+func New(cfg Config) *Model {
 	return &Model{
 		events:        make(chan RowEvent, 100),
 		selectedTable: -1,
+		dbCfg:         cfg,
 	}
 }
 
 func (m Model) Init() tea.Cmd {
 	ctx := context.Background()
-	go listen(ctx, m.events)
+	go listen(ctx, m.events, m.dbCfg)
 	return waitForEvent(m.events)
 }
 
@@ -229,7 +231,7 @@ func (m Model) View() string {
 }
 
 func main() {
-	m := New()
+	m := New(readArguments())
 	p := tea.NewProgram(
 		m,
 		tea.WithAltScreen(),

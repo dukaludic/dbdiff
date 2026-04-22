@@ -43,9 +43,9 @@ func mapEventType(e replication.EventType) EventType {
 
 var tableColumnMap = make(map[string][]string)
 
-func listen(ctx context.Context, out chan<- RowEvent) {
-	dsn := "root:@tcp(127.0.0.1:3306)/sakila"
-	db, err := sql.Open("mysql", dsn)
+func listen(ctx context.Context, out chan<- RowEvent, dbCfg Config) {
+	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", dbCfg.User, dbCfg.Password, dbCfg.Host, dbCfg.Port, dbCfg.Schema)
+	db, err := sql.Open("mysql", connectionString)
 
 	if err != nil {
 		log.Fatal(err)
@@ -74,10 +74,11 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 
 	cfg := replication.BinlogSyncerConfig{
 		ServerID: 1,
-		Flavor:   "mysql",
-		Host:     "127.0.0.1",
-		Port:     3306,
-		User:     "root",
+		Flavor:   dbCfg.Flavor,
+		Host:     dbCfg.Host,
+		Port:     uint16(dbCfg.Port),
+		User:     dbCfg.User,
+		Password: dbCfg.Password,
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
@@ -106,7 +107,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 
 			// Check if there is better way to do this. Probably not
 			schema := string(ev.Schema)
-			if schema != "sakila" {
+			if schema != dbCfg.Schema {
 				continue
 			}
 
@@ -139,7 +140,7 @@ func listen(ctx context.Context, out chan<- RowEvent) {
 		case *replication.RowsEvent:
 			schema := string(ev.Table.Schema)
 			table := string(ev.Table.Table)
-			if schema != "sakila" {
+			if schema != dbCfg.Schema {
 				continue
 			}
 
